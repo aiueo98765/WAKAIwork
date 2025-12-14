@@ -44,6 +44,7 @@
             radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.1), transparent 50%),
             radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.1), transparent 50%);
         overflow-x: hidden;
+        width: 100vw; /* Prevent horizontal scroll on root */
     }
 
     /* Components */
@@ -186,22 +187,37 @@
     @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
     @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-    /* Mobile specific tweaks (Horizontal scroll & Calendar overflow Fix) */
+    /* Mobile specific tweaks (Horizontal scroll & Calendar overflow Fix & Sticky Header) */
     @media (max-width: 768px) {
         .todo-input-row { flex-direction: column; align-items: stretch; }
         
         /* Fix Horizontal Scroll: Adjust container width and padding */
-        .container { padding: 10px; width: 100%; overflow-x: hidden; }
+        .container { padding: 15px; width: 100%; overflow-x: hidden; }
         
+        /* Fixed Header Logic */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.95); /* Semi-transparent bg */
+            backdrop-filter: blur(10px);
+            margin: -15px -15px 20px -15px; /* Negate container padding to span full width */
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
         /* Adjust Login Card */
         .login-card { padding: 30px 20px; width: 95%; max-width: 95%; }
         
         .btn { height: 50px; }
 
-        /* Fix Calendar Overflow */
-        .cal-grid { gap: 2px; } /* Reduce gap */
+        /* Fix Calendar Overflow: Reduce padding and gaps */
+        .card { padding: 10px; } /* Reduce card padding from 20px to 10px on mobile */
+        
+        .cal-grid { gap: 1px; } /* Minimize gap to 1px */
+        
         .cal-day { 
-            min-height: 50px; /* Reduce min-height to fit */
+            min-height: 45px; /* Reduce min-height */
             padding: 2px; 
             border-radius: 6px;
         }
