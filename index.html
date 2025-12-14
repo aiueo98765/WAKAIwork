@@ -186,12 +186,31 @@
     @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
     @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-    /* Mobile specific tweaks */
+    /* Mobile specific tweaks (Horizontal scroll & Calendar overflow Fix) */
     @media (max-width: 768px) {
         .todo-input-row { flex-direction: column; align-items: stretch; }
-        .container { padding: 15px; width: 100%; }
-        .login-card { padding: 30px 20px; width: 95%; }
+        
+        /* Fix Horizontal Scroll: Adjust container width and padding */
+        .container { padding: 10px; width: 100%; overflow-x: hidden; }
+        
+        /* Adjust Login Card */
+        .login-card { padding: 30px 20px; width: 95%; max-width: 95%; }
+        
         .btn { height: 50px; }
+
+        /* Fix Calendar Overflow */
+        .cal-grid { gap: 2px; } /* Reduce gap */
+        .cal-day { 
+            min-height: 50px; /* Reduce min-height to fit */
+            padding: 2px; 
+            border-radius: 6px;
+        }
+        .cal-num { font-size: 0.8rem; }
+        .cal-indicators { gap: 2px; }
+        .cal-dot { width: 4px; height: 4px; }
+
+        /* Adjust Nav Scroll to match new padding */
+        .nav-wrapper { margin: 0 -10px 20px -10px; padding: 0 10px; }
     }
 </style>
 </head>
@@ -212,7 +231,7 @@
 
         <input type="text" id="input-name" placeholder="お名前 (必須)" style="margin-bottom:15px;">
         <input type="text" id="input-room" placeholder="ルーム名 (例: TeamA)" style="margin-bottom:15px;">
-        <input type="password" id="input-pass" placeholder="パスワード(必須)" style="margin-bottom:25px;">
+        <input type="password" id="input-pass" placeholder="合言葉 (必須)" style="margin-bottom:25px;">
         
         <button class="btn" style="width:100%" onclick="joinRoom()">
             始める <i class="fa-solid fa-rocket"></i>
