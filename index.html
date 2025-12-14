@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>WAKAIwork - Ultimate Sync</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "yjs": "https://esm.sh/yjs@13",
+    "y-webrtc": "https://esm.sh/y-webrtc@10",
+    "y-indexeddb": "https://esm.sh/y-indexeddb@9"
+  }
+}
+</script>
+
+<style>
+    :root {
+        --bg-dark: #0f172a;
+        --card-bg: rgba(30, 41, 59, 0.85);
+        --glass-border: rgba(255, 255, 255, 0.1);
+        --accent: #8b5cf6;
+        --accent-glow: rgba(139, 92, 246, 0.5);
+        --text: #f1f5f9;
+        --text-muted: #94a3b8;
+        --success: #10b981;
+        --pending: #64748b;
+        --danger: #ef4444;
+        
+        --tag-work: #3b82f6;
+        --tag-life: #10b981;
+        --tag-study: #f59e0b;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter', 'Noto Sans JP', sans-serif; -webkit-tap-highlight-color: transparent; }
+    
+    body {
+        background: var(--bg-dark); color: var(--text); min-height: 100vh;
+        background-image: 
+            radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.1), transparent 50%),
+            radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.1), transparent 50%);
+        overflow-x: hidden;
+    }
+
+    /* Components */
+    .btn {
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        color: white; border: none; padding: 0 24px; height: 48px;
+        border-radius: 12px; font-weight: 600; cursor: pointer;
+        transition: all 0.2s ease; box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
+        display: inline-flex; justify-content: center; align-items: center; gap: 8px; white-space: nowrap;
+        font-size: 1rem;
+    }
+    .btn:active { transform: scale(0.96); }
+
+    .btn-icon {
+        background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+        color: var(--text-muted); width: 40px; height: 40px; border-radius: 10px;
+        display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s;
+    }
+    .btn-icon:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+
+    input, select, textarea {
+        background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border);
+        padding: 12px 16px; border-radius: 12px; color: white; font-size: 1rem;
+        transition: 0.3s; width: 100%; font-family: inherit; appearance: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
+
+    /* Layout */
+    #login-view { height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .login-card {
+        background: var(--card-bg); backdrop-filter: blur(20px);
+        padding: 40px; border-radius: 24px; border: 1px solid var(--glass-border);
+        width: 100%; max-width: 450px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+
+    #app-view { display: none; padding-bottom: 80px; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+
+    header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 15px 0; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border);
+    }
+    .user-profile { display: flex; align-items: center; gap: 12px; }
+    .avatar-circle {
+        width: 44px; height: 44px; border-radius: 50%; background: var(--glass-border);
+        border: 2px solid var(--accent); overflow: hidden; position: relative; flex-shrink: 0;
+    }
+    .avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
+
+    /* Navigation */
+    .nav-wrapper { overflow-x: auto; margin: 0 -20px 20px -20px; padding: 0 20px; scrollbar-width: none; }
+    .nav-wrapper::-webkit-scrollbar { display: none; }
+    .nav-container { 
+        display: flex; gap: 8px; width: fit-content; margin-bottom: 5px;
+    }
+    .nav-btn {
+        background: rgba(30, 41, 59, 0.5); border: 1px solid var(--glass-border); padding: 10px 20px;
+        border-radius: 12px; color: var(--text-muted); cursor: pointer; 
+        font-weight: 600; transition: 0.3s; white-space: nowrap;
+    }
+    .nav-btn.active { background: var(--accent); color: white; border-color: var(--accent); box-shadow: 0 4px 15px var(--accent-glow); }
+
+    .content-section { display: none; opacity: 0; animation: fadeIn 0.3s forwards; }
+    @keyframes fadeIn { to { opacity: 1; } }
+    .content-section.active { display: block; }
+
+    .card { background: var(--card-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border); margin-bottom: 20px; }
+
+    /* Memo Tab */
+    .memo-area {
+        width: 100%; height: 60vh; min-height: 400px;
+        background: rgba(15, 23, 42, 0.5); border: 1px solid var(--glass-border);
+        border-radius: 12px; padding: 20px; color: var(--text);
+        font-family: 'Inter', monospace; line-height: 1.6; font-size: 1.05rem;
+        resize: none; outline: none;
+    }
+    .memo-area:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
+
+    /* Calendar */
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+    .cal-day-name { text-align: center; color: var(--text-muted); font-size: 0.75rem; padding-bottom: 5px; }
+    .cal-day {
+        aspect-ratio: 1/1; min-height: 60px; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 6px;
+        position: relative; cursor: pointer; border: 1px solid transparent; display: flex; flex-direction: column; justify-content: flex-start;
+    }
+    .cal-day:active { transform: scale(0.95); background: rgba(255,255,255,0.08); }
+    .cal-day.today { background: rgba(139, 92, 246, 0.2); border-color: var(--accent); }
+    .cal-num { font-weight: 700; font-size: 0.9rem; }
+    .cal-indicators { display: flex; gap: 3px; margin-top: auto; flex-wrap: wrap; justify-content: center; }
+    .cal-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    /* Todo */
+    .todo-input-row { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; }
+    .todo-item {
+        display: flex; align-items: center; justify-content: space-between;
+        background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px;
+        margin-bottom: 8px; border: 1px solid var(--glass-border);
+    }
+    .status-badge {
+        width: 40px; height: 40px; border-radius: 10px; display: flex; justify-content: center; align-items: center;
+        font-weight: 700; cursor: pointer; flex-shrink: 0; font-size: 0.9rem;
+    }
+    .status-yet { background: var(--pending); color: rgba(255,255,255,0.8); }
+    .status-done { background: var(--success); color: white; }
+    
+    .tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; color: white; }
+    .tag-work { background: var(--tag-work); }
+    .tag-life { background: var(--tag-life); }
+    .tag-study { background: var(--tag-study); }
+
+    /* Report */
+    .report-card { padding: 25px; min-height: 70vh; display: flex; flex-direction: column; }
+    .report-textarea { background: rgba(15, 23, 42, 0.4); border: 1px solid var(--glass-border); }
+
+    /* Dashboard */
+    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+    .stat-card { background: var(--card-bg); padding: 25px; border-radius: 16px; border: 1px solid var(--glass-border); position: relative; overflow: hidden; }
+    .stat-card::before {
+        content:''; position: absolute; top:0; left:0; width:100%; height:4px;
+        background: linear-gradient(90deg, var(--accent), #3b82f6);
+    }
+
+    /* Modal */
+    #modal-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); z-index: 2000;
+        justify-content: center; align-items: flex-end; /* Mobile: bottom sheet style */
+    }
+    @media (min-width: 768px) { #modal-overlay { align-items: center; } }
+    
+    .modal-box {
+        background: #1e293b; width: 100%; max-height: 85vh; border-radius: 20px 20px 0 0;
+        padding: 25px; overflow-y: auto; border-top: 1px solid var(--glass-border);
+        animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @media (min-width: 768px) { 
+        .modal-box { width: 90%; max-width: 600px; border-radius: 20px; animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); border: 1px solid var(--glass-border); }
+    }
+    
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    /* Mobile specific tweaks */
+    @media (max-width: 768px) {
+        .todo-input-row { flex-direction: column; align-items: stretch; }
+        .container { padding: 15px; width: 100%; }
+        .login-card { padding: 30px 20px; width: 95%; }
+        .btn { height: 50px; }
+    }
+</style>
+</head>
+<body>
+
+<div id="login-view">
+    <div class="login-card">
+        <h2 style="text-align:center; font-weight:800; font-size:1.8rem; margin-bottom:10px;">WAKAIwork</h2>
+        <p style="text-align:center; color:var(--text-muted); margin-bottom:30px; font-size:0.9rem;">Serverless Team Sync</p>
+
+        <div style="display:flex; justify-content:center; margin-bottom:25px;">
+            <div class="avatar-circle" style="width:90px; height:90px; cursor:pointer;" onclick="document.getElementById('input-avatar').click()">
+                <img id="avatar-preview" src="" style="display:none;">
+                <i id="avatar-placeholder" class="fa-solid fa-camera" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:2rem; color:var(--text-muted);"></i>
+            </div>
+            <input type="file" id="input-avatar" accept="image/*" style="display:none;" onchange="handleFileSelect(event)">
+        </div>
+
+        <input type="text" id="input-name" placeholder="お名前 (必須)" style="margin-bottom:15px;">
+        <input type="text" id="input-room" placeholder="ルーム名 (例: TeamA)" style="margin-bottom:15px;">
+        <input type="password" id="input-pass" placeholder="パスワード(必須)" style="margin-bottom:25px;">
+        
+        <button class="btn" style="width:100%" onclick="joinRoom()">
+            始める <i class="fa-solid fa-rocket"></i>
+        </button>
+    </div>
+</div>
+
+<div id="app-view">
+    <div class="container">
+        <header>
+            <div class="user-profile">
+                <div class="avatar-circle"><img id="header-avatar" src=""></div>
+                <div>
+                    <h2 id="display-room" style="font-weight:700; font-size:1.1rem; line-height:1.2;">Project</h2>
+                    <div id="display-name" style="font-size:0.85rem; color:var(--text-muted);">User</div>
+                </div>
+            </div>
+            <button class="btn-icon" onclick="location.reload()" title="ログアウト"><i class="fa-solid fa-right-from-bracket"></i></button>
+        </header>
+
+        <div class="nav-wrapper">
+            <div class="nav-container">
+                <button class="nav-btn active" onclick="showTab('tab-schedule')"><i class="fa-regular fa-calendar"></i> カレンダー</button>
+                <button class="nav-btn" onclick="showTab('tab-todo')"><i class="fa-solid fa-check"></i> タスク</button>
+                <button class="nav-btn" onclick="showTab('tab-memo')"><i class="fa-regular fa-note-sticky"></i> 共有メモ</button>
+                <button class="nav-btn" onclick="showTab('tab-report')"><i class="fa-solid fa-pen-nib"></i> 日報作成</button>
+                <button class="nav-btn" onclick="showTab('tab-dashboard')"><i class="fa-solid fa-chart-pie"></i> 分析</button>
+            </div>
+        </div>
+
+        <div id="tab-schedule" class="content-section active">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <button class="btn-icon" onclick="moveMonth(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                    <h2 id="cal-title" style="font-weight:700; font-size:1.1rem;">YYYY / MM</h2>
+                    <button class="btn-icon" onclick="moveMonth(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+                <div class="cal-grid">
+                    <div class="cal-day-name" style="color:#ef4444">日</div><div class="cal-day-name">月</div><div class="cal-day-name">火</div>
+                    <div class="cal-day-name">水</div><div class="cal-day-name">木</div><div class="cal-day-name">金</div><div class="cal-day-name" style="color:#3b82f6">土</div>
+                </div>
+                <div id="cal-body" class="cal-grid"></div>
+                <div style="margin-top:10px; font-size:0.8rem; color:var(--text-muted); text-align:right;">
+                    <span style="color:#8b5cf6;">●</span> 日報あり <span style="color:#10b981; margin-left:5px;">●</span> タスク完了
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-todo" class="content-section">
+            <div class="card">
+                <div class="todo-input-row">
+                    <select id="todo-tag" style="width:100px; flex-shrink:0;">
+                        <option value="work">仕事</option>
+                        <option value="life">生活</option>
+                        <option value="study">勉強</option>
+                    </select>
+                    <input type="text" id="todo-text" placeholder="タスクを入力..." style="flex:1;">
+                    <button class="btn" style="flex-shrink:0; height:46px;" onclick="addTodo()">追加</button>
+                </div>
+            </div>
+            <div id="todo-list"></div>
+        </div>
+
+        <div id="tab-memo" class="content-section">
+            <div class="card" style="padding:15px;">
+                <div style="margin-bottom:10px; display:flex; justify-content:space-between;">
+                    <h3><i class="fa-regular fa-note-sticky"></i> チーム共有メモ</h3>
+                    <span style="font-size:0.8rem; color:var(--text-muted);"><i class="fa-solid fa-bolt"></i> Real-time</span>
+                </div>
+                <textarea id="shared-memo" class="memo-area" placeholder="ここに書いた内容は、リアルタイムで全員の画面に同期されます。&#13;&#13;・アイデア出し&#13;・URLの共有&#13;・一時的なメモ&#13;などに活用してください。"></textarea>
+            </div>
+        </div>
+
+        <div id="tab-report" class="content-section">
+            <div class="report-card">
+                <h3 style="margin-bottom:15px;"><i class="fa-solid fa-pen-nib"></i> 本日の日報</h3>
+                <input type="date" id="rep-date" style="margin-bottom:15px; font-weight:bold;">
+                
+                <label style="font-size:0.85rem; color:var(--text-muted); margin-bottom:5px;">完了業務・実績</label>
+                <textarea id="rep-done" class="report-textarea" placeholder="業務内容..." style="margin-bottom:15px; flex:2; min-height:120px;"></textarea>
+                
+                <div style="display:flex; flex-direction:column; gap:15px; flex:1;">
+                    <div>
+                        <label style="font-size:0.85rem; color:#86efac;">Good Points</label>
+                        <textarea id="rep-good" class="report-textarea" placeholder="良かった点" style="min-height:80px;"></textarea>
+                    </div>
+                    <div>
+                        <label style="font-size:0.85rem; color:#fca5a5;">Bad Points</label>
+                        <textarea id="rep-bad" class="report-textarea" placeholder="改善点" style="min-height:80px;"></textarea>
+                    </div>
+                </div>
+                <button class="btn" style="width:100%; margin-top:20px;" onclick="addReport()">提出</button>
+            </div>
+            
+            <div style="margin-top:20px;">
+                <h4 style="margin-bottom:10px; color:var(--text-muted);">最近の履歴</h4>
+                <div id="report-list"></div>
+            </div>
+        </div>
+
+        <div id="tab-dashboard" class="content-section">
+            <div style="display:flex; justify-content:flex-end; margin-bottom:15px; align-items:center; gap:10px;">
+                <span style="color:var(--text-muted); font-size:0.9rem;">Filter:</span>
+                <select id="dash-user-filter" style="width:150px;" onchange="renderDashboard()">
+                    <option value="ALL">全員</option>
+                </select>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <div style="color:var(--text-muted); margin-bottom:10px;">タスク完了率</div>
+                    <div style="display:flex; align-items:baseline; gap:10px;">
+                        <div id="stat-rate" style="font-size:3rem; font-weight:800; color:var(--accent);">0%</div>
+                        <div id="stat-count" style="color:var(--text-muted);">0 / 0 Items</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div style="color:var(--text-muted); margin-bottom:10px;">カテゴリー内訳</div>
+                    <div style="height:150px; position:relative;">
+                        <canvas id="chart-cat"></canvas>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div style="color:var(--text-muted); margin-bottom:10px;">週間推移</div>
+                    <div style="height:150px; position:relative;">
+                        <canvas id="chart-trend"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top:20px;">
+                <h3 style="margin-bottom:15px;">メンバー <span id="member-count" style="font-size:0.8rem; color:var(--text-muted);"></span></h3>
+                <div id="member-list-display" style="display:flex; gap:10px; flex-wrap:wrap;"></div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div id="modal-overlay" onclick="if(event.target === this) closeModal()">
+    <div class="modal-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 id="modal-date">DATE</h2>
+            <button class="btn-icon" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="margin-bottom:25px;">
+            <h4 style="color:var(--accent); margin-bottom:10px; border-bottom:1px solid var(--glass-border); padding-bottom:5px;">日報</h4>
+            <div id="modal-reports"></div>
+        </div>
+        <div>
+            <h4 style="color:var(--success); margin-bottom:10px; border-bottom:1px solid var(--glass-border); padding-bottom:5px;">完了タスク</h4>
+            <div id="modal-todos"></div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import * as Y from 'yjs';
+    import { WebrtcProvider } from 'y-webrtc';
+    import { IndexeddbPersistence } from 'y-indexeddb';
+
+    // State
+    let currentUser = { name:'', avatar:'' };
+    let roomData = { todos:[], reports:[], members:[] };
+    let ydoc, yTodos, yReports, yMemo, provider;
+    let calDate = new Date();
+    let chartCatInstance = null, chartTrendInstance = null;
+
+    // --- Init & Auth ---
+    window.onload = () => {
+        // Load saved credentials
+        const savedName = localStorage.getItem('wakai_name');
+        const savedAvatar = localStorage.getItem('wakai_avatar');
+        const savedRoom = localStorage.getItem('wakai_room');
+        const savedPass = localStorage.getItem('wakai_pass');
+
+        if(savedName) document.getElementById('input-name').value = savedName;
+        if(savedRoom) document.getElementById('input-room').value = savedRoom;
+        if(savedPass) document.getElementById('input-pass').value = savedPass;
+
+        if(savedAvatar) {
+            currentUser.avatar = savedAvatar;
+            document.getElementById('avatar-preview').src = savedAvatar;
+            document.getElementById('avatar-preview').style.display = 'block';
+            document.getElementById('avatar-placeholder').style.display = 'none';
+        }
+        document.getElementById('rep-date').value = getLocalISODate();
+    };
+
+    window.handleFileSelect = (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                const cvs = document.createElement('canvas');
+                const ctx = cvs.getContext('2d');
+                const size = 150; 
+                cvs.width = size; cvs.height = size;
+                ctx.drawImage(img, 0, 0, size, size);
+                const data = cvs.toDataURL('image/jpeg', 0.8);
+                currentUser.avatar = data;
+                document.getElementById('avatar-preview').src = data;
+                document.getElementById('avatar-preview').style.display = 'block';
+                document.getElementById('avatar-placeholder').style.display = 'none';
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    async function hashRoomId(room, pass) {
+        const msg = new TextEncoder().encode(room + "::salt::" + pass);
+        const hash = await crypto.subtle.digest('SHA-256', msg);
+        return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('').substring(0,24);
+    }
+
+    window.joinRoom = async () => {
+        const name = document.getElementById('input-name').value;
+        const room = document.getElementById('input-room').value;
+        const pass = document.getElementById('input-pass').value;
+        if(!name || !room || !pass) return alert('全ての項目を入力してください');
+
+        currentUser.name = name;
+        // Save Credentials for Next Time
+        localStorage.setItem('wakai_name', name);
+        localStorage.setItem('wakai_room', room);
+        localStorage.setItem('wakai_pass', pass);
+        if(currentUser.avatar) localStorage.setItem('wakai_avatar', currentUser.avatar);
+
+        const roomId = await hashRoomId(room, pass);
+        
+        document.getElementById('login-view').style.display = 'none';
+        document.getElementById('app-view').style.display = 'block';
+        document.getElementById('display-room').innerText = room;
+        document.getElementById('display-name').innerText = name;
+        if(currentUser.avatar) document.getElementById('header-avatar').src = currentUser.avatar;
+
+        initYjs(roomId);
+    };
+
+    function initYjs(roomId) {
+        ydoc = new Y.Doc();
+        yTodos = ydoc.getArray('todos');
+        yReports = ydoc.getArray('reports');
+        yMemo = ydoc.getText('shared-memo'); // Shared Text
+        
+        const db = new IndexeddbPersistence('wakai-db-'+roomId, ydoc);
+        provider = new WebrtcProvider('wakai-room-'+roomId, ydoc, {
+            signaling: ['wss://signaling.yjs.dev']
+        });
+
+        // Sync Data
+        yTodos.observeDeep(() => { updateData(); renderTodos(); renderCal(); renderDashboard(); });
+        yReports.observeDeep(() => { updateData(); renderReports(); renderCal(); updateFilterOptions(); });
+        
+        // Bind Memo to Textarea
+        yMemo.observe(event => {
+            const textArea = document.getElementById('shared-memo');
+            if (document.activeElement !== textArea) {
+                textArea.value = yMemo.toString();
+            }
+        });
+        // Initial bind
+        document.getElementById('shared-memo').value = yMemo.toString();
+
+        // Bind Textarea Input to Yjs
+        document.getElementById('shared-memo').addEventListener('input', (e) => {
+            const currentVal = e.target.value;
+            if (currentVal !== yMemo.toString()) {
+                ydoc.transact(() => {
+                    yMemo.delete(0, yMemo.length);
+                    yMemo.insert(0, currentVal);
+                });
+            }
+        });
+
+        // Presence
+        provider.awareness.setLocalStateField('user', { name: currentUser.name, avatar: currentUser.avatar });
+        provider.awareness.on('change', () => {
+            const states = provider.awareness.getStates();
+            roomData.members = Array.from(states.values()).map(s => s.user).filter(u=>u);
+            renderMembers();
+        });
+
+        db.on('synced', () => { updateData(); renderTodos(); renderReports(); renderCal(); renderDashboard(); updateFilterOptions();
+            document.getElementById('shared-memo').value = yMemo.toString();
+        });
+    }
+
+    function updateData() {
+        roomData.todos = yTodos.toJSON();
+        roomData.reports = yReports.toJSON();
+    }
+
+    function getLocalISODate() {
+        const d = new Date();
+        const offset = d.getTimezoneOffset() * 60000;
+        return new Date(d.getTime() - offset).toISOString().split('T')[0];
+    }
+
+    // --- Features ---
+
+    // 1. Task
+    window.addTodo = () => {
+        const text = document.getElementById('todo-text').value;
+        const tag = document.getElementById('todo-tag').value;
+        if(!text) return;
+        yTodos.unshift([{ id: Date.now(), text, tag, done: false, createdAt: getLocalISODate(), author: currentUser.name }]);
+        document.getElementById('todo-text').value = '';
+    };
+
+    window.toggleStatus = (id) => {
+        ydoc.transact(() => {
+            const arr = yTodos.toArray();
+            const idx = arr.findIndex(t => t.id === id);
+            if(idx !== -1) {
+                const item = arr[idx];
+                yTodos.delete(idx, 1);
+                item.done = !item.done;
+                item.completedAt = item.done ? getLocalISODate() : null;
+                yTodos.insert(idx, [item]); 
+            }
+        });
+    };
+
+    window.deleteTodo = (id) => {
+        if(confirm('削除しますか？')) {
+            ydoc.transact(() => {
+                const idx = yTodos.toArray().findIndex(t => t.id === id);
+                if(idx !== -1) yTodos.delete(idx, 1);
+            });
+        }
+    };
+
+    function renderTodos() {
+        const list = document.getElementById('todo-list');
+        const sorted = roomData.todos.slice().sort((a,b) => (a.done === b.done) ? b.id - a.id : a.done ? 1 : -1);
+        list.innerHTML = sorted.map(t => `
+            <div class="todo-item" style="opacity:${t.done ? '0.6' : '1'}">
+                <div class="status-badge ${t.done ? 'status-done' : 'status-yet'}" onclick="toggleStatus(${t.id})">${t.done ? '済' : '未'}</div>
+                <div style="flex:1; margin:0 10px;">
+                    <div style="font-weight:500; ${t.done?'text-decoration:line-through':''}">${t.text}</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); display:flex; gap:5px; align-items:center; margin-top:2px;">
+                        <span class="tag tag-${t.tag}">${t.tag.toUpperCase()}</span> ${t.author}
+                    </div>
+                </div>
+                <button class="btn-icon" style="width:32px; height:32px;" onclick="deleteTodo(${t.id})"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        `).join('');
+    }
+
+    // 2. Report
+    window.addReport = () => {
+        const date = document.getElementById('rep-date').value;
+        const done = document.getElementById('rep-done').value;
+        if(!date || !done) return alert('日付と内容は必須です');
+        
+        yReports.unshift([{
+            id: Date.now(), date, done,
+            good: document.getElementById('rep-good').value,
+            bad: document.getElementById('rep-bad').value,
+            author: currentUser.name
+        }]);
+        document.getElementById('rep-done').value = '';
+        document.getElementById('rep-good').value = '';
+        document.getElementById('rep-bad').value = '';
+        alert('提出しました');
+    };
+
+    function renderReports() {
+        document.getElementById('report-list').innerHTML = roomData.reports.slice(0,10).map(r => `
+            <div style="background:rgba(255,255,255,0.03); padding:15px; border-radius:12px; margin-bottom:10px; border:1px solid rgba(255,255,255,0.05);">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:var(--accent);">
+                    <strong>${r.author}</strong> <span>${r.date}</span>
+                </div>
+                <div style="font-size:0.9rem; white-space:pre-wrap;">${r.done.substring(0,50)}${r.done.length>50?'...':''}</div>
+            </div>
+        `).join('');
+    }
+
+    // 3. Calendar
+    window.moveMonth = (v) => { calDate.setMonth(calDate.getMonth() + v); renderCal(); };
+    function renderCal() {
+        const y = calDate.getFullYear();
+        const m = calDate.getMonth();
+        document.getElementById('cal-title').innerText = `${y} / ${m+1}`;
+        const container = document.getElementById('cal-body');
+        container.innerHTML = '';
+        const firstDay = new Date(y, m, 1).getDay();
+        const lastDate = new Date(y, m + 1, 0).getDate();
+        const todayStr = getLocalISODate();
+
+        for(let i=0; i<firstDay; i++) container.innerHTML += `<div></div>`;
+        for(let d=1; d<=lastDate; d++) {
+            const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const isToday = (dateStr === todayStr) ? 'today' : '';
+            const hasRep = roomData.reports.some(r => r.date === dateStr);
+            const doneCount = roomData.todos.filter(t => t.completedAt === dateStr).length;
+            
+            let indicators = '';
+            if(hasRep) indicators += `<span class="cal-dot" style="background:#8b5cf6;"></span>`;
+            if(doneCount > 0) indicators += `<span class="cal-dot" style="background:#10b981;"></span>`;
+
+            container.innerHTML += `
+                <div class="cal-day ${isToday}" onclick="openDayModal('${dateStr}')">
+                    <div class="cal-num">${d}</div>
+                    <div class="cal-indicators">${indicators}</div>
+                </div>
+            `;
+        }
+    }
+
+    // Modal
+    window.openDayModal = (dStr) => {
+        document.getElementById('modal-date').innerText = dStr;
+        document.getElementById('modal-overlay').style.display = 'flex';
+        
+        // Filter Data
+        const reps = roomData.reports.filter(r => r.date === dStr);
+        document.getElementById('modal-reports').innerHTML = reps.length 
+            ? reps.map(r => `
+                <div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:8px; margin-bottom:8px;">
+                    <div style="font-weight:bold; color:var(--accent); font-size:0.9rem;">${r.author}</div>
+                    <div style="white-space:pre-wrap; font-size:0.95rem; margin-top:4px;">${r.done}</div>
+                    ${r.good ? `<div style="color:#86efac; font-size:0.85rem; margin-top:4px;">[Good] ${r.good}</div>`:''}
+                    ${r.bad ? `<div style="color:#fca5a5; font-size:0.85rem; margin-top:4px;">[Bad] ${r.bad}</div>`:''}
+                </div>`).join('')
+            : '<p style="color:#666; font-size:0.9rem;">提出なし</p>';
+
+        const dones = roomData.todos.filter(t => t.completedAt === dStr);
+        document.getElementById('modal-todos').innerHTML = dones.length
+            ? dones.map(t => `<div style="margin-bottom:5px; font-size:0.95rem;"><span style="color:#10b981;">✔</span> ${t.text} <span style="font-size:0.8rem; color:#888">(${t.author})</span></div>`).join('')
+            : '<p style="color:#666; font-size:0.9rem;">完了なし</p>';
+    };
+    window.closeModal = () => document.getElementById('modal-overlay').style.display = 'none';
+
+    // Dashboard Logic
+    function updateFilterOptions() {
+        const authors = new Set([...roomData.todos.map(t=>t.author), ...roomData.reports.map(r=>r.author)]);
+        const select = document.getElementById('dash-user-filter');
+        const currentVal = select.value;
+        select.innerHTML = '<option value="ALL">全員</option>';
+        authors.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a; opt.innerText = a; select.appendChild(opt);
+        });
+        select.value = currentVal;
+    }
+
+    window.renderDashboard = () => {
+        // 1. Members
+        renderMembers();
+
+        // 2. Stats & Charts
+        const filterUser = document.getElementById('dash-user-filter').value;
+        const targetTodos = (filterUser === 'ALL') ? roomData.todos : roomData.todos.filter(t => t.author === filterUser);
+        
+        // Stats
+        const total = targetTodos.length;
+        const done = targetTodos.filter(t => t.done).length;
+        const rate = total ? Math.round((done/total)*100) : 0;
+        document.getElementById('stat-rate').innerText = `${rate}%`;
+        document.getElementById('stat-count').innerText = `${done} / ${total} Items`;
+
+        // Destroy Old Charts
+        if(chartCatInstance) chartCatInstance.destroy();
+        if(chartTrendInstance) chartTrendInstance.destroy();
+
+        // Chart 1: Categories
+        const cats = { work:0, life:0, study:0 };
+        targetTodos.forEach(t => { if(cats[t.tag]!==undefined) cats[t.tag]++ });
+        
+        chartCatInstance = new Chart(document.getElementById('chart-cat'), {
+            type: 'doughnut',
+            data: {
+                labels: ['仕事', '生活', '勉強'],
+                datasets: [{ data: [cats.work, cats.life, cats.study], backgroundColor:['#3b82f6','#10b981','#f59e0b'], borderWidth:0 }]
+            },
+            options: { maintainAspectRatio:false, plugins:{ legend:{position:'right', labels:{color:'#94a3b8'}} } }
+        });
+
+        // Chart 2: Trend
+        const labels = [], data = [];
+        for(let i=6; i>=0; i--) {
+            const d = new Date(); d.setDate(d.getDate()-i);
+            const iso = new Date(d.getTime() - (d.getTimezoneOffset()*60000)).toISOString().split('T')[0];
+            labels.push(iso.slice(5)); // MM-DD
+            data.push(targetTodos.filter(t => t.completedAt === iso).length);
+        }
+
+        chartTrendInstance = new Chart(document.getElementById('chart-trend'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{ 
+                    label: '完了数', data: data, 
+                    borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.2)', 
+                    fill: true, tension: 0.4 
+                }]
+            },
+            options: { 
+                maintainAspectRatio:false, 
+                plugins:{ legend:{display:false} },
+                scales:{ x:{grid:{display:false}}, y:{beginAtZero:true, grid:{color:'rgba(255,255,255,0.05)'}} } 
+            }
+        });
+    }
+
+    function renderMembers() {
+        document.getElementById('member-list-display').innerHTML = roomData.members.map(m => `
+            <div style="display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.05); padding:5px 10px; border-radius:20px;">
+                <div style="width:24px; height:24px; border-radius:50%; background:#444; overflow:hidden;">
+                    ${m.avatar ? `<img src="${m.avatar}" style="width:100%;height:100%;">`:''}
+                </div>
+                <span style="font-size:0.85rem;">${m.name}</span>
+            </div>
+        `).join('');
+        document.getElementById('member-count').innerText = `(${roomData.members.length} Online)`;
+    }
+
+    // Tab Switch
+    window.showTab = (id) => {
+        document.querySelectorAll('.content-section').forEach(e => e.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(e => e.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        
+        const map = { 'tab-schedule':0, 'tab-todo':1, 'tab-memo':2, 'tab-report':3, 'tab-dashboard':4 };
+        if(map[id] !== undefined) document.querySelectorAll('.nav-btn')[map[id]].classList.add('active');
+        
+        if(id === 'tab-dashboard') {
+            renderDashboard();
+        }
+    };
+</script>
+</body>
+</html>
